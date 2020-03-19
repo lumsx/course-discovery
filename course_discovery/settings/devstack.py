@@ -16,7 +16,7 @@ CORS_ORIGIN_WHITELIST = (
     'localhost:18400',  # frontend-app-publisher
 )
 
-HAYSTACK_CONNECTIONS['default']['URL'] = 'http://edx.devstack.elasticsearch:9200/'
+HAYSTACK_CONNECTIONS['default']['URL'] = 'http://edx.devstack.elasticsearch-5:9200/'
 
 SOCIAL_AUTH_REDIRECT_IS_HTTPS = False
 
