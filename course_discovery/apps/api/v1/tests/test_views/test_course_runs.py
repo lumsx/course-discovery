@@ -570,7 +570,10 @@ class CourseRunViewSetTests(SerializationMixin, ElasticsearchTestMixin, OAuth2Mi
         PersonFactory()
 
         url = reverse('api:v1:course_run-detail', kwargs={'key': self.draft_course_run.key})
-        response = self.client.patch(url, {'staff': [p2.uuid, p1.uuid]}, format='json')
+        data = {'staff': [{'uuid': p2.uuid, 'partner': p2.partner.id},
+                          {'uuid': p1.uuid, 'partner': p1.partner.id}]}
+
+        response = self.client.patch(url, data, format='json')
         self.assertEqual(response.status_code, 200)
 
         self.draft_course_run.refresh_from_db()
