@@ -250,18 +250,6 @@ class CourseWithProgramsSerializerTests(CourseSerializerTests):
         )
         self.assertEqual(serializer.data, self.get_expected_data(self.course, self.request))
 
-    def test_filter_courses_on_edx_org_short_name(self):
-        """
-        Verify courses filtering on edX organization works as expected..
-        """
-        edx_org_short_name = 'edx'
-        edx_org_course = CourseFactory(partner=self.partner, authoring_organizations__key=edx_org_short_name)
-        serialized_courses = self.serializer_class.prefetch_queryset(
-            partner=self.partner,
-            edx_org_short_name=edx_org_short_name
-        )
-        assert serialized_courses.values() != self.get_expected_data(edx_org_course, self.request).values()
-
 
 class MinimalCourseRunBaseTestSerializer(TestCase):
     serializer_class = MinimalCourseRunSerializer
@@ -444,17 +432,6 @@ class CourseRunWithProgramsSerializerTests(TestCase):
             serializer.data['programs'],
             NestedProgramSerializer([retired_program], many=True, context=self.serializer_context).data
         )
-
-    def test_filter_course_runs_on_edx_org_short_name(self):
-        """
-        Verify course runs filtering on edX organization works as expected.
-        """
-        edx_org_short_name = 'edx'
-        edx_org_course = CourseRunFactory(course__authoring_organizations__key=edx_org_short_name)
-        serialized_course_runs = CourseRunWithProgramsSerializer.prefetch_queryset(
-            edx_org_short_name=edx_org_short_name
-        )
-        assert serialized_course_runs.values() != self.get_expected_data(edx_org_course, self.request).values()
 
     @classmethod
     def get_expected_data(cls, course_run, request):
@@ -733,16 +710,6 @@ class MinimalProgramSerializerTests(TestCase):
         serializer = self.serializer_class(program, context={'request': request})
         expected = self.get_expected_data(program, request)
         self.assertDictEqual(serializer.data, expected)
-
-    def test_filter_programs_on_edx_org_short_name(self):
-        """
-        Verify programs filtering on edX organization works as expected.
-        """
-        edx_org_short_name = 'edx'
-        request = make_request()
-        edx_org_program = ProgramFactory(authoring_organizations__key=edx_org_short_name)
-        serializer = self.serializer_class(edx_org_program, context={'request': request})
-        assert serializer.data['title'] == self.get_expected_data(edx_org_program, request)['title']
 
 
 class ProgramSerializerTests(MinimalProgramSerializerTests):
@@ -1037,16 +1004,6 @@ class ProgramSerializerTests(MinimalProgramSerializerTests):
         }
         self.assertDictEqual(serializer.data, expected)
 
-    def test_filter_programs_on_edx_org_short_name(self):
-        """
-        Verify programs filtering on edX organization works as expected.
-        """
-        edx_org_short_name = 'edx'
-        request = make_request()
-        edx_org_program = ProgramFactory(authoring_organizations__key=edx_org_short_name)
-        serializer = self.serializer_class(edx_org_program, context={'request': request})
-        assert serializer.data['title'] == self.get_expected_data(edx_org_program, request)['title']
-
 
 class PathwaySerialzerTests(TestCase):
     def test_data(self):
@@ -1102,25 +1059,6 @@ class ContainedCourseRunsSerializerTests(TestCase):
         }
         serializer = ContainedCourseRunsSerializer(instance)
         self.assertDictEqual(serializer.data, instance)
-
-    def test_contained_course_runs_filtered_on_edx_org_short_name(self):
-        """
-        Verify course runs keys filtering on elastic search query string & edX organization.
-        """
-        edx_org_short_name = 'edx'
-        edx_org_course_run_key = 'course-v1:edX+DemoX+Demo_Course'
-        course_run_ids = [edx_org_course_run_key]
-        course_runs_with_org_filter = CourseRun.objects.filter(course__authoring_organizations__key=edx_org_short_name)
-        course_runs_keys = course_runs_with_org_filter.values_list('key', flat=True)
-        contained_course_runs = {course_run_id: course_run_id in course_runs_keys for course_run_id in course_run_ids}
-        course_runs_instances = {'course_runs': contained_course_runs}
-        contained_course_runs_serializer = ContainedCourseRunsSerializer(course_runs_instances)
-        expected_contained_courses = {
-            'course_runs': {
-                edx_org_course_run_key: False
-            }
-        }
-        assert contained_course_runs_serializer.data == expected_contained_courses
 
 
 class ContainedCoursesSerializerTests(TestCase):
@@ -1557,7 +1495,6 @@ class CourseSearchSerializerTests(TestCase, CourseSearchSerializerMixin):
             }],
             'uuid': str(course.uuid),
             'subjects': [subject.name for subject in course.subjects.all()],
-            'org': course.authoring_organizations,
         }
 
 
