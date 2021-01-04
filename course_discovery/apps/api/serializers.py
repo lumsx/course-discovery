@@ -556,6 +556,8 @@ class MinimalCourseRunSerializer(TimestampModelSerializer):
     image = ImageField(read_only=True, source='image_url')
     marketing_url = serializers.SerializerMethodField()
     seats = SeatSerializer(many=True)
+    course_lms_url = serializers.SerializerMethodField()
+    lms_url = serializers.SerializerMethodField()
 
     @classmethod
     def prefetch_queryset(cls, queryset=None):
@@ -571,7 +573,7 @@ class MinimalCourseRunSerializer(TimestampModelSerializer):
     class Meta:
         model = CourseRun
         fields = ('key', 'uuid', 'title', 'image', 'short_description', 'marketing_url', 'seats',
-                  'start', 'end', 'enrollment_start', 'enrollment_end', 'pacing_type', 'type', 'status',)
+                  'start', 'end', 'enrollment_start', 'enrollment_end', 'pacing_type', 'type', 'status', 'course_lms_url', 'lms_url',)
 
     def get_marketing_url(self, obj):
         include_archived = self.context.get('include_archived')
@@ -587,6 +589,12 @@ class MinimalCourseRunSerializer(TimestampModelSerializer):
             )
 
         return marketing_url
+
+    def get_course_lms_url(self, obj):
+        return get_lms_course_url_for_archived(obj.course.partner, obj.key)
+
+    def get_lms_url(self, obj):
+        return obj.course.partner.lms_url
 
 
 class CourseRunSerializer(MinimalCourseRunSerializer):

@@ -14,6 +14,7 @@ from course_discovery.apps.core.tests.mixins import ElasticsearchTestMixin
 from course_discovery.apps.course_metadata.choices import ProgramStatus
 from course_discovery.apps.course_metadata.models import CourseRun
 from course_discovery.apps.course_metadata.tests.factories import CourseRunFactory, ProgramFactory, SeatFactory
+from course_discovery.apps.core.tests.factories import PartnerFactory, SiteFactory
 
 
 @ddt.ddt
@@ -346,3 +347,23 @@ class CourseRunViewSetTests(SerializationMixin, ElasticsearchTestMixin, APITestC
 
         response = self.client.get(url)
         assert response.status_code == 400
+
+    def test_list_include_all_partners(self):
+        """ Verify the endpoint returns a list of all course runs for all partners. """
+        site1 = SiteFactory()
+        partner1 = PartnerFactory(site=site1)
+        site2 = SiteFactory()
+        partner2 = PartnerFactory(site=site2)
+        CourseRunFactory(course__partner=partner1)
+        CourseRunFactory(course__partner=partner2)
+        url = reverse('api:v1:course_run-list')
+        url += '?include_all_partners=1'
+
+        with self.assertNumQueries(17):
+            response = self.client.get(url)
+
+        assert response.status_code == 200
+        self.assertListEqual(
+            response.data['results'],
+            self.serialize_course_run(CourseRun.objects.all().order_by(Lower('key')), many=True)
+        )
