@@ -12,6 +12,7 @@ from course_discovery.apps.api.utils import get_query_param
 from course_discovery.apps.core.utils import SearchQuerySetWrapper
 from course_discovery.apps.course_metadata.constants import COURSE_RUN_ID_REGEX
 from course_discovery.apps.course_metadata.models import CourseRun
+from course_discovery.apps.core.models import Partner
 
 
 # pylint: disable=no-member
@@ -42,16 +43,18 @@ class CourseRunViewSet(viewsets.ModelViewSet):
               multiple: false
         """
         q = self.request.query_params.get('q')
-        partner = self.request.site.partner
+        include_all_partners = get_query_param(self.request, 'include_all_partners')
+        partners = Partner.objects.all() if include_all_partners else Partner.objects.filter(site=self.request.site)
+        edx_org_short_name = self.request.query_params.get('org')
 
         if q:
-            qs = SearchQuerySetWrapper(CourseRun.search(q).filter(partner=partner.short_code))
+            qs = SearchQuerySetWrapper(CourseRun.search(q).filter(partner__in=partners.values_list('short_code', flat=True)))
             # This is necessary to avoid issues with the filter backend.
             qs.model = self.queryset.model
             return qs
         else:
-            queryset = super(CourseRunViewSet, self).get_queryset().filter(course__partner=partner)
-            return self.get_serializer_class().prefetch_queryset(queryset=queryset)
+            queryset = super(CourseRunViewSet, self).get_queryset().filter(course__partner__in=partners)
+            return self.get_serializer_class().prefetch_queryset(queryset=queryset, edx_org_short_name=edx_org_short_name)
 
     def get_serializer_context(self, *args, **kwargs):
         context = super().get_serializer_context(*args, **kwargs)
@@ -60,6 +63,7 @@ class CourseRunViewSet(viewsets.ModelViewSet):
             'include_deleted_programs': get_query_param(self.request, 'include_deleted_programs'),
             'include_unpublished_programs': get_query_param(self.request, 'include_unpublished_programs'),
             'include_retired_programs': get_query_param(self.request, 'include_retired_programs'),
+            'include_all_partners': get_query_param(self.request, 'include_all_partners'),
         })
 
         return context
@@ -124,6 +128,18 @@ class CourseRunViewSet(viewsets.ModelViewSet):
               type: integer
               paramType: query
               multiple: false
+            - name: org
+              description: Filter results on edx organization's short name.
+              required: false
+              type: string
+              paramType: query
+              multiple: false
+            - name: include_all_partners
+              description: Include courses for all partners.
+              required: false
+              type: integer
+              paramType: query
+              multiple: false
         """
         return super(CourseRunViewSet, self).list(request, *args, **kwargs)
 
@@ -163,14 +179,30 @@ class CourseRunViewSet(viewsets.ModelViewSet):
               type: string
               paramType: query
               multiple: false
+            - name: org
+              description: Filter results on edx organization's short name.
+              required: false
+              type: string
+              paramType: query
+              multiple: false
+            - name: include_all_partners
+              description: Include courses for all partners.
+              required: false
+              type: integer
+              paramType: query
+              multiple: false
         """
         query = request.GET.get('query')
         course_run_ids = request.GET.get('course_run_ids')
-        partner = self.request.site.partner
+        include_all_partners = get_query_param(self.request, 'include_all_partners')
+        partners = Partner.objects.all() if include_all_partners else Partner.objects.filter(site=self.request.site)
+        edx_org_short_name = request.GET.get('org')
 
         if query and course_run_ids:
             course_run_ids = course_run_ids.split(',')
-            course_runs = CourseRun.search(query).filter(partner=partner.short_code).filter(key__in=course_run_ids).values_list('key', flat=True)
+            course_runs = CourseRun.search(query).filter(partner__in=partners.values_list('short_code', flat=True)).filter(key__in=course_run_ids)
+            # update "course_runs" with edx organization filter
+            course_runs = course_runs.filter(course__authoring_organizations__key=edx_org_short_name).values_list('key', flat=True)
             contains = {course_run_id: course_run_id in course_runs for course_run_id in course_run_ids}
 
             instance = {'course_runs': contains}
